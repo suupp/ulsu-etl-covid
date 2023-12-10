@@ -2,6 +2,8 @@ import requests
 from bs4 import BeautifulSoup
 import pyodbc
 from datetime import datetime, timedelta
+from datetime import date
+
 
 def get_covid_data():
     url = 'https://horosho-tam.ru/rossiya/coronavirus'
@@ -14,18 +16,15 @@ def get_covid_data():
 
         if russia_data:
             country_name = russia_data.find('td', {'class': 'td_country'}).text.strip()
-            cases = russia_data.find('td', {'class': 'td_cases'}).text.strip()
-            deaths = russia_data.find('td', {'class': 'td_deaths'}).text.strip()
-            hospitalized = russia_data.find('td', {'class': 'td_hospitalized'}).text.strip()
-            recovered = russia_data.find('td', {'class': 'td_recover'}).text.strip()
+            current_date = datetime(datetime.now().year, datetime.now().month, datetime.now().day)
+            cases = int(russia_data.find('td', {'class': 'td_cases'}).text.replace(' ', '').strip())
+            deaths = int(russia_data.find('td', {'class': 'td_deaths'}).text.strip())
 
             return {
                 'country': country_name,
+                'date': current_date,
                 'cases': cases,
-                'deaths': deaths,
-                'hospitalized': hospitalized,
-                'recovered': recovered,
-                'date': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                'deaths': deaths
             }
         else:
             print("Данные для России не найдены на странице.")
@@ -35,48 +34,48 @@ def get_covid_data():
         return None
 
 def get_last_update_date(cursor):
-    cursor.execute('SELECT MAX(date) FROM covid_stats')
-    last_update_date_str = cursor.fetchone()[0]
+    cursor.execute('SELECT MAX(date) FROM Covid_stats')
+    last_update_date = cursor.fetchone()[0]
 
-    # Преобразование строки в объект datetime
-    if last_update_date_str:
-        return datetime.strptime(str(last_update_date_str), '%Y-%m-%d %H:%M:%S')
-    else:
-        return None
+    if last_update_date:
+        if isinstance(last_update_date, datetime):
+            last_update_date = last_update_date.date()
+        elif isinstance(last_update_date, str):
+            last_update_date = datetime.strptime(last_update_date, '%Y-%m-%d').date()
+
+    return last_update_date
+
 
 def save_to_database(data, cursor):
     # Проверяем существование таблицы при открытии соединения
     cursor.execute('''
-        IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'covid_stats')
-        CREATE TABLE covid_stats (
+        IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Covid_stats')
+        CREATE TABLE Covid_stats (
             id INT PRIMARY KEY IDENTITY(1,1),
-            date DATETIME,
+            date DATE,
             country NVARCHAR(255),
-            cases NVARCHAR(255),
-            deaths NVARCHAR(255),
-            hospitalized NVARCHAR(255),
-            recovered NVARCHAR(255)
+            cases INT,
+            deaths INT
         )
     ''')
     
     # Получаем дату последнего обновления
     last_update_date = get_last_update_date(cursor)
 
-    if not last_update_date or (datetime.now() - last_update_date).days >= 7:
+    if not last_update_date or (datetime.now().date() - last_update_date).days >= 7:
         # Добавляем данные
         cursor.execute('''
-            INSERT INTO covid_stats (date, country, cases, deaths, hospitalized, recovered)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', (data['date'], data['country'], data['cases'], data['deaths'], data['hospitalized'], data['recovered']))
+            INSERT INTO Covid_stats (date, country, cases, deaths)
+            VALUES (?, ?, ?, ?)
+        ''', (data['date'], data['country'], data['cases'], data['deaths']))
 
         cursor.commit()
         print("Данные успешно добавлены.")
     else:
         print("Недостаточно времени прошло с последнего обновления.")
 
-
 def display_covid_data(cursor):
-    cursor.execute('SELECT TOP 1 * FROM covid_stats ORDER BY date DESC')
+    cursor.execute('SELECT TOP 1 * FROM Covid_stats ORDER BY date DESC')
     data = cursor.fetchone()
 
     if data:
