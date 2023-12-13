@@ -55,7 +55,8 @@ def save_to_database(data, cursor):
             date DATE,
             country NVARCHAR(255),
             cases INT,
-            deaths INT
+            deaths INT,
+            source NVARCHAR(255)
         )
     ''')
     
@@ -63,16 +64,24 @@ def save_to_database(data, cursor):
     last_update_date = get_last_update_date(cursor)
 
     if not last_update_date or (datetime.now().date() - last_update_date).days >= 7:
-        # Добавляем данные
-        cursor.execute('''
-            INSERT INTO Covid_stats (date, country, cases, deaths)
-            VALUES (?, ?, ?, ?)
-        ''', (data['date'], data['country'], data['cases'], data['deaths']))
+        # Проверяем наличие дубликатов по дате
+        cursor.execute('SELECT 1 FROM Covid_stats WHERE date = ?', (data['date'],))
+        duplicate_exists = cursor.fetchone()
 
-        cursor.commit()
-        print("Данные успешно добавлены.")
+        if not duplicate_exists:
+            # Добавляем данные, если нет дубликатов
+            cursor.execute('''
+                INSERT INTO Covid_stats (date, country, cases, deaths, source)
+                VALUES (?, ?, ?, ?, 'from_html')
+            ''', (data['date'], data['country'], data['cases'], data['deaths']))
+
+            cursor.commit()
+            print("Данные успешно добавлены.")
+        else:
+            print(f"Дубликат данных для даты {data['date']} обнаружен. Пропускаем.")
     else:
         print("Недостаточно времени прошло с последнего обновления.")
+
 
 def display_covid_data(cursor):
     cursor.execute('SELECT TOP 1 * FROM Covid_stats ORDER BY date DESC')
@@ -91,7 +100,7 @@ def main():
     username = 'MY-NOTEBOOK-00\Я'
 
     # Строка подключения
-    connection_string = f'DRIVER={{SQL Server}};SERVER={server};DATABASE={database};UID={username};Trusted_Connection=yes;'
+    connection_string = f'DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={server};DATABASE={database};UID={username};Trusted_Connection=yes;'
 
     # Подключение к базе данных
     conn = pyodbc.connect(connection_string)
