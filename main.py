@@ -1,6 +1,6 @@
 from csvparserpkg.csvparser import parse_dated_csvfile
 from csvparserpkg.csvparser import rename_keys
-from csvparserpkg.csvparser import save_csv_to_database,add_csv_data_to_database
+from csvparserpkg.csvparser import save_csv_to_database,add_csv_data_to_database,add_csv_data_to_database_2
 from htmlparserpkg.htmlparser import get_covid_data, get_last_update_date, save_to_database, display_covid_data
 import pyodbc
 from datetime import datetime
@@ -35,6 +35,8 @@ def main():
     csv_filepath = 'data.csv'
     add_csv_data_to_database(csv_filepath, cursor)
 
+    csv_filepath_2 = 'owid-covid-data.csv'
+    add_csv_data_to_database_2(csv_filepath_2, cursor)
     # Отображение данных
     display_covid_data(cursor)
 

@@ -1,5 +1,6 @@
 import csv
 from datetime import datetime
+from dateutil.parser import parse
 
 def columns_to_parse(*args):
     return args
@@ -23,11 +24,10 @@ def parse_dated_csvfile(filepath, date_column_name, country_column_name, *other_
             bad_keys = [key for key in row.keys() if key not in good_keys]
             for key in bad_keys:
                 del row[key]
-            row[date_column_name] = datetime.strptime(row[date_column_name], "%d/%m/%Y").date()
+            row[date_column_name] = parse(row[date_column_name]).date()
             if row[country_column_name] == 'Russia': plist.append(row)
             #rename_keys(row)
     return plist
-
 
 def rename_keys(record):
     record['date'] = record.pop('dateRep')
@@ -36,6 +36,12 @@ def rename_keys(record):
     record['country'] = record.pop('countriesAndTerritories')
     return record
 
+def rename_keys_2(record):
+    record['date'] = record.pop('date')
+    record['cases'] = record.pop('new_cases')
+    record['deaths'] = record.pop('new_deaths')
+    record['country'] = record.pop('location')
+    return record
 #print(parse_dated_csvfile('csv-parser-module/data.csv', "dateRep", 'countriesAndTerritories', 'cases', 'deaths')[:2])
 
 
@@ -60,11 +66,13 @@ def save_csv_to_database(data_list, cursor):
         duplicate_exists = cursor.fetchone()
 
         if not duplicate_exists:
+            cases = int(float(data['cases']))
+            deaths = int(float(data['deaths']))
             # Добавляем данные, если нет дубликатов
             cursor.execute('''
                 INSERT INTO Covid_stats (date, country, cases, deaths, source)
                 VALUES (?, ?, ?, ?, 'from_csv_2020')
-            ''', (data['date'], data['country'], data['cases'], data['deaths']))
+            ''', (data['date'], data['country'], cases, deaths))
         else:
             print(f"Дубликат данных для даты {data['date']} обнаружен. Пропускаем.")
 
@@ -84,3 +92,14 @@ def add_csv_data_to_database(csv_filepath, cursor):
     # Добавление данных в базу данных
     save_csv_to_database(covid_data_csv, cursor)
 
+def add_csv_data_to_database_2(csv_filepath, cursor):
+    # Загрузка данных из CSV
+    date_column_name = "date"
+    country_column_name = 'location'
+    other_columns = ['new_cases', 'new_deaths']
+
+    covid_data_csv = parse_dated_csvfile(csv_filepath, date_column_name, country_column_name, *other_columns)
+    covid_data_csv = list(map(rename_keys_2, covid_data_csv))
+    print(covid_data_csv)
+    # Добавление данных в базу данных
+    save_csv_to_database(covid_data_csv, cursor)
