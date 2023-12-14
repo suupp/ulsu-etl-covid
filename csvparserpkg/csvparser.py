@@ -19,24 +19,24 @@ def parse_dated_csvfile(filepath, date_column_name, country_column_name, *other_
                 except:
                     #print(v, 'badtype', type(v), end = " !! ")
                     row[k] = v[0]
-            row = {k: float(v) if v.isnumeric() else v for k, v in row.items()}
             good_keys = [date_column_name, country_column_name, *other_columns]
             bad_keys = [key for key in row.keys() if key not in good_keys]
             for key in bad_keys:
                 del row[key]
+            row = {k: float(v) if v.replace('.', '').isnumeric() else v for k, v in row.items()}
             row[date_column_name] = parse(row[date_column_name]).date()
             if row[country_column_name] == 'Russia': plist.append(row)
             #rename_keys(row)
     return plist
 
-def rename_keys(record):
-    record['date'] = record.pop('dateRep')
-    record['cases'] = record.pop('cases')
-    record['deaths'] = record.pop('deaths')
-    record['country'] = record.pop('countriesAndTerritories')
+def rename_keys(record, *cols):
+    newcols = ['date', 'cases', 'deaths', 'country']
+    for i in range(len(newcols)):
+        record[newcols[i]] = record.pop(cols[i])
     return record
 
-def rename_keys_2(record):
+###########################
+def rename_keys_2(record):              # no longer relevant
     record['date'] = record.pop('date')
     record['cases'] = record.pop('new_cases')
     record['deaths'] = record.pop('new_deaths')
@@ -79,20 +79,23 @@ def save_csv_to_database(data_list, cursor):
     cursor.commit()
     print("Данные успешно добавлены.")
 
-
-def add_csv_data_to_database(csv_filepath, cursor):
+# cols must be in order like 'date', 'country', 'cases', 'deaths'
+def add_csv_data_to_database(cursor, csv_filepath, *cols):
     # Загрузка данных из CSV
-    date_column_name = "dateRep"
-    country_column_name = 'countriesAndTerritories'
-    other_columns = ['cases', 'deaths']
+    date_column_name = cols[0]
+    country_column_name = cols[1]
+    other_columns = [cols[2], cols[3]]
 
     covid_data_csv = parse_dated_csvfile(csv_filepath, date_column_name, country_column_name, *other_columns)
-    covid_data_csv = list(map(rename_keys, covid_data_csv))
+    #covid_data_csv = list(map(rename_keys, covid_data_csv))
+    covid_data_csv = [rename_keys(rec, date_column_name, other_columns[0], other_columns[1], country_column_name) for rec in covid_data_csv]
     print(covid_data_csv)
     # Добавление данных в базу данных
     save_csv_to_database(covid_data_csv, cursor)
 
-def add_csv_data_to_database_2(csv_filepath, cursor):
+
+####################################################
+def add_csv_data_to_database_2(csv_filepath, cursor):    #no longer relevant
     # Загрузка данных из CSV
     date_column_name = "date"
     country_column_name = 'location'
@@ -100,6 +103,8 @@ def add_csv_data_to_database_2(csv_filepath, cursor):
 
     covid_data_csv = parse_dated_csvfile(csv_filepath, date_column_name, country_column_name, *other_columns)
     covid_data_csv = list(map(rename_keys_2, covid_data_csv))
+    covid_data_csv = [rename_keys(rec, 'date', 'new_cases', 'new_deaths', 'location') for rec in covid_data_csv]
+    
     print(covid_data_csv)
     # Добавление данных в базу данных
     save_csv_to_database(covid_data_csv, cursor)

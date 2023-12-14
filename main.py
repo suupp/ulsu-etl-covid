@@ -33,10 +33,11 @@ def main():
 
      # Добавление данных из CSV в базу данных
     csv_filepath = 'data.csv'
-    add_csv_data_to_database(csv_filepath, cursor)
+    add_csv_data_to_database(cursor, csv_filepath, 'dateRep', 'countriesAndTerritories', 'cases', 'deaths')
 
     csv_filepath_2 = 'owid-covid-data.csv'
-    add_csv_data_to_database_2(csv_filepath_2, cursor)
+    add_csv_data_to_database(cursor, csv_filepath_2, 'date', 'location', 'new_cases', 'new_deaths')
+    #add_csv_data_to_database_2(csv_filepath_2, cursor)
     # Отображение данных
     display_covid_data(cursor)
 
