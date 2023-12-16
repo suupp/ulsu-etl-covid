@@ -43,6 +43,7 @@ def get_covid_data():
     result = []
     for row in data:
         result.append({
+            'id': row.id,
             'date': row.date.strftime('%Y-%m-%d'),
             'location': row.country,
             'cases': row.cases,
@@ -50,6 +51,29 @@ def get_covid_data():
         })
     
     return jsonify(result)
+
+# Новый маршрут для получения данных о конкретном элементе по ID
+@app.route('/covid-data/<int:item_id>', methods=['GET'])
+def get_covid_data_by_id(item_id):
+    cursor = conn.cursor()
+    
+    # Подготовка и выполнение запроса
+    query = f"SELECT * FROM Covid_stats WHERE id = {item_id}"
+    cursor.execute(query)
+    data = cursor.fetchone()
+
+    # Проверка наличия данных
+    if data:
+        result = {
+            'id': data.id,
+            'date': data.date.strftime('%Y-%m-%d'),
+            'location': data.country,
+            'cases': data.cases,
+            'deaths': data.deaths
+        }
+        return jsonify(result)
+    else:
+        return jsonify({'error': 'Item not found'}), 404
 
 app.run(debug=True)
 #if __name__ == '__main__':
