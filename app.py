@@ -3,15 +3,14 @@ import pyodbc
 
 app = Flask(__name__)
 
-# Database connection parameters
-server = 'serv name'
-database = 'db name'
-username = 'your_username'
-password = 'your_password'  #можно без него по идее, добавить trusted connection в строке подключения к базке
-driver= '{ODBC Driver 17 for SQL Server}'
+ # Параметры подключения к SQL Server
+server = r'MY-NOTEBOOK-00\SQLEXPRESS'
+database = 'CovidData'
+username = 'MY-NOTEBOOK-00\Я'
 
-# Database connection
-conn = pyodbc.connect('DRIVER='+driver+';SERVER='+server+';PORT=1433;DATABASE='+database+';UID='+username+';PWD='+ password)
+# Строка подключения
+connection_string = f'DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={server};DATABASE={database};UID={username};Trusted_Connection=yes;'
+conn = pyodbc.connect(connection_string)
 
 # API routes
 @app.route('/covid-data', methods=['GET'])
@@ -24,7 +23,7 @@ def get_covid_data():
     end_date = request.args.get('end_date')
     
     # Construct query based on filters
-    query = "SELECT * FROM covid_data"
+    query = "SELECT * FROM Covid_stats"
     filters = []
     if country:
         filters.append(f"country = '{country}'")
@@ -44,10 +43,10 @@ def get_covid_data():
     result = []
     for row in data:
         result.append({
-            'date': row['date'],
-            'location': row['country'],
-            'cases': row['cases'],
-            'deaths': row['deaths']
+            'date': row.date.strftime('%Y-%m-%d'),
+            'location': row.country,
+            'cases': row.cases,
+            'deaths': row.deaths
         })
     
     return jsonify(result)

@@ -64,6 +64,7 @@ def save_to_database(data, cursor):
     last_update_date = get_last_update_date(cursor)
 
     if not last_update_date or (datetime.now().date() - last_update_date).days >= 7:
+        data['country'] = 'Russia'
         # Проверяем наличие дубликатов по дате
         cursor.execute('SELECT 1 FROM Covid_stats WHERE date = ?', (data['date'],))
         duplicate_exists = cursor.fetchone()
