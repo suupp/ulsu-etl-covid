@@ -1,6 +1,7 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, render_template
 from config import API_KEYS
 from functools import wraps
+from utils.utils import get_covid_data_util
 import pyodbc
 
 app = Flask(__name__)
@@ -24,58 +25,22 @@ def require_api_key(view_function):
             return jsonify({'error': 'Unauthorized'}), 401
     return decorated_function
 
-def get_covid_data_util():
-    cursor = conn.cursor()
-    
-    # Get request parameters for filtering
-    start_date = request.args.get('start_date')
-    end_date = request.args.get('end_date')
-    min_cases = request.args.get('min_cases')
-    max_cases = request.args.get('max_cases')
-    min_deaths = request.args.get('min_deaths')
-    max_deaths = request.args.get('max_deaths')
-    # Construct query based on filters
-    query = "SELECT * FROM Covid_stats"
-    filters = []
-    if start_date:
-        filters.append(f"DATE >= '{start_date}'")
-    if end_date:
-        filters.append(f"DATE <= '{end_date}'")
-    if min_cases:
-        filters.append(f"CASES >= '{min_cases}'")
-    if max_cases:
-        filters.append(f"CASES <= '{max_cases}'")
-    if min_deaths:
-        filters.append(f"DEATHS >= '{min_deaths}'")
-    if max_deaths:
-        filters.append(f"DEATHS <= '{max_deaths}'")
-    
-    if filters:
-        query += " WHERE " + " AND ".join(filters)
-    
-    # Execute query
-    cursor.execute(query)
-    data = cursor.fetchall()
-    
-    # Convert data to JSON format
-    result = []
-    for row in data:
-        result.append({
-            'id': row.id,
-            'date': row.date.strftime('%Y-%m-%d'),
-            'location': row.country,
-            'cases': row.cases,
-            'deaths': row.deaths
-        })
-    
-    return jsonify(result)
 
 # API routes
 @app.route('/covid-data', methods=['GET'])
 @require_api_key
 def get_covid_data():
-    return get_covid_data_util()
+    return jsonify(get_covid_data_util())
 
+
+@app.route('/covid-data-page', methods=['GET'])
+def get_covid_data():
+    data_records = get_covid_data_util()
+    if data_records:
+        return render_template('records.html', records=data_records, colnames=data_records[0].keys())
+    else:
+        return jsonify({'error': 'No data'})
+    
 # Новый маршрут для получения данных о конкретном элементе по ID
 @app.route('/covid-data/<int:item_id>', methods=['GET'])
 def get_covid_data_by_id(item_id):
