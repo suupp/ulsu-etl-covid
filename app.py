@@ -18,19 +18,27 @@ def get_covid_data():
     cursor = conn.cursor()
     
     # Get request parameters for filtering
-    country = request.args.get('country')
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
-    
+    min_cases = request.args.get('min_cases')
+    max_cases = request.args.get('max_cases')
+    min_deaths = request.args.get('min_deaths')
+    max_deaths = request.args.get('max_deaths')
     # Construct query based on filters
     query = "SELECT * FROM Covid_stats"
     filters = []
-    if country:
-        filters.append(f"country = '{country}'")
     if start_date:
-        filters.append(f"date >= '{start_date}'")
+        filters.append(f"DATE >= '{start_date}'")
     if end_date:
-        filters.append(f"date <= '{end_date}'")
+        filters.append(f"DATE <= '{end_date}'")
+    if min_cases:
+        filters.append(f"CASES >= '{min_cases}'")
+    if max_cases:
+        filters.append(f"CASES <= '{max_cases}'")
+    if min_deaths:
+        filters.append(f"DEATHS >= '{min_deaths}'")
+    if max_deaths:
+        filters.append(f"DEATHS <= '{max_deaths}'")
     
     if filters:
         query += " WHERE " + " AND ".join(filters)

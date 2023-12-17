@@ -27,6 +27,7 @@ def parse_dated_csvfile(filepath, date_column_name, country_column_name, *other_
             row[date_column_name] = parse(row[date_column_name], dayfirst=True, yearfirst=True).date()
             if row[country_column_name] == 'Russia': plist.append(row)
             #rename_keys(row)
+    plist.sort(key = lambda x: x[date_column_name])
     return plist
 
 def rename_keys(record, *cols):
@@ -85,8 +86,3 @@ def add_csv_data_to_database(cursor, csv_filepath, *cols):
     print(covid_data_csv)
     # Добавление данных в базу данных
     save_csv_to_database(covid_data_csv, cursor)
-
-dadada = parse_dated_csvfile('data.csv', "dateRep", 'countriesAndTerritories', 'cases', 'deaths')
-for row in dadada:
-    if row['dateRep'].month == 3:
-        print(row)
