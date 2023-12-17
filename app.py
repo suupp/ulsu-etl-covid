@@ -1,4 +1,6 @@
 from flask import Flask, jsonify, request
+from config import API_KEYS
+from functools import wraps
 import pyodbc
 
 app = Flask(__name__)
@@ -12,8 +14,19 @@ username = 'MY-NOTEBOOK-00\Я'
 connection_string = f'DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={server};DATABASE={database};UID={username};Trusted_Connection=yes;'
 conn = pyodbc.connect(connection_string)
 
+def require_api_key(view_function):
+    @wraps(view_function)
+    def decorated_function(*args, **kwargs):
+        api_key = request.headers.get('Api-Key')
+        if api_key and api_key in API_KEYS.values():
+            return view_function(*args, **kwargs)
+        else:
+            return jsonify({'error': 'Unauthorized'}), 401
+    return decorated_function
+
 # API routes
 @app.route('/covid-data', methods=['GET'])
+@require_api_key
 def get_covid_data():
     cursor = conn.cursor()
     
