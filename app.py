@@ -34,7 +34,7 @@ def get_covid_data():
 
 
 @app.route('/covid-data-page', methods=['GET'])
-def get_covid_data():
+def get_covid_data_html():
     data_records = get_covid_data_util()
     if data_records:
         return render_template('records.html', records=data_records, colnames=data_records[0].keys())
