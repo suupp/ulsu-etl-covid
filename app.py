@@ -24,10 +24,7 @@ def require_api_key(view_function):
             return jsonify({'error': 'Unauthorized'}), 401
     return decorated_function
 
-# API routes
-@app.route('/covid-data', methods=['GET'])
-@require_api_key
-def get_covid_data():
+def get_covid_data_util():
     cursor = conn.cursor()
     
     # Get request parameters for filtering
@@ -72,6 +69,12 @@ def get_covid_data():
         })
     
     return jsonify(result)
+
+# API routes
+@app.route('/covid-data', methods=['GET'])
+@require_api_key
+def get_covid_data():
+    return get_covid_data_util()
 
 # Новый маршрут для получения данных о конкретном элементе по ID
 @app.route('/covid-data/<int:item_id>', methods=['GET'])
