@@ -24,7 +24,7 @@ def parse_dated_csvfile(filepath, date_column_name, country_column_name, *other_
             for key in bad_keys:
                 del row[key]
             row = {k: float(v) if v.replace('.', '').isnumeric() else v for k, v in row.items()}
-            row[date_column_name] = parse(row[date_column_name]).date()
+            row[date_column_name] = parse(row[date_column_name], dayfirst=True, yearfirst=True).date()
             if row[country_column_name] == 'Russia': plist.append(row)
             #rename_keys(row)
     return plist
@@ -35,14 +35,7 @@ def rename_keys(record, *cols):
         record[newcols[i]] = record.pop(cols[i])
     return record
 
-###########################
-def rename_keys_2(record):              # no longer relevant
-    record['date'] = record.pop('date')
-    record['cases'] = record.pop('new_cases')
-    record['deaths'] = record.pop('new_deaths')
-    record['country'] = record.pop('location')
-    return record
-#print(parse_dated_csvfile('csv-parser-module/data.csv', "dateRep", 'countriesAndTerritories', 'cases', 'deaths')[:2])
+
 
 
 def save_csv_to_database(data_list, cursor):
@@ -93,18 +86,7 @@ def add_csv_data_to_database(cursor, csv_filepath, *cols):
     # Добавление данных в базу данных
     save_csv_to_database(covid_data_csv, cursor)
 
-
-####################################################
-def add_csv_data_to_database_2(csv_filepath, cursor):    #no longer relevant
-    # Загрузка данных из CSV
-    date_column_name = "date"
-    country_column_name = 'location'
-    other_columns = ['new_cases', 'new_deaths']
-
-    covid_data_csv = parse_dated_csvfile(csv_filepath, date_column_name, country_column_name, *other_columns)
-    covid_data_csv = list(map(rename_keys_2, covid_data_csv))
-    covid_data_csv = [rename_keys(rec, 'date', 'new_cases', 'new_deaths', 'location') for rec in covid_data_csv]
-    
-    print(covid_data_csv)
-    # Добавление данных в базу данных
-    save_csv_to_database(covid_data_csv, cursor)
+dadada = parse_dated_csvfile('data.csv', "dateRep", 'countriesAndTerritories', 'cases', 'deaths')
+for row in dadada:
+    if row['dateRep'].month == 3:
+        print(row)
