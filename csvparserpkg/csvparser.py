@@ -1,6 +1,15 @@
 import csv
 from datetime import datetime
 from dateutil.parser import parse
+import logging
+
+# Конфигурация логгера для CSV-парсера
+csv_logger = logging.getLogger('csv_parser')
+csv_logger.setLevel(logging.INFO)
+csv_handler = logging.FileHandler('csv_parser.log')
+csv_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+csv_handler.setFormatter(csv_formatter)
+csv_logger.addHandler(csv_handler)
 
 def columns_to_parse(*args):
     return args
@@ -35,8 +44,9 @@ def parse_dated_csvfile(filepath, date_column_name, country_column_name, *other_
                     plist.append(row)
 
             plist.sort(key=lambda x: x[date_column_name])
+        csv_logger.info("Данные успешно получены.")
     except Exception as e:
-        print(f"Произошла ошибка при чтении CSV-файла: {e}")
+        csv_logger.error(f"Произошла ошибка при чтении CSV-файла: {e}")
         return None
 
     return plist
@@ -78,13 +88,13 @@ def save_csv_to_database(data_list, cursor):
                     VALUES (?, ?, ?, ?, 'from_csv')
                 ''', (data['date'], data['country'], cases, deaths))
             else:
-                print(f"Дубликат данных для даты {data['date']} обнаружен. Пропускаем.")
+                csv_logger.warning(f"Дубликат данных для даты {data['date']} обнаружен. Пропускаем.")
 
         cursor.commit()
-        print("Данные успешно добавлены.")
+        csv_logger.info("Данные успешно добавлены.")
 
     except Exception as e:
-        print(f"Произошла ошибка при сохранении данных в базу данных: {e}")
+        csv_logger.error(f"Произошла ошибка при сохранении данных в базу данных: {e}")
 
 # cols must be in order like 'date', 'country', 'cases', 'deaths'
 def add_csv_data_to_database(cursor, csv_filepath, *cols):
@@ -103,4 +113,4 @@ def add_csv_data_to_database(cursor, csv_filepath, *cols):
             save_csv_to_database(covid_data_csv, cursor)
 
     except Exception as e:
-        print(f"Произошла ошибка при обработке данных из CSV: {e}")
+        csv_logger.error(f"Произошла ошибка при обработке данных из CSV: {e}")

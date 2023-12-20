@@ -1,8 +1,16 @@
 import requests
 from bs4 import BeautifulSoup
 import pyodbc
-from datetime import datetime, timedelta
+from datetime import datetime
+import logging
 
+# Конфигурация логгера для HTML-парсера
+html_logger = logging.getLogger('html_parser')
+html_logger.setLevel(logging.INFO)
+html_handler = logging.FileHandler('html_parser.log')
+html_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+html_handler.setFormatter(html_formatter)
+html_logger.addHandler(html_handler)
 
 def get_covid_data():
     try:
@@ -32,6 +40,7 @@ def get_covid_data():
                         deaths = int(value_text.replace(' ', ''))
 
             if country_name and active_cases is not None and deaths is not None:
+                html_logger.info("Данные успешно получены.")
                 current_date = datetime(datetime.now().year, datetime.now().month, datetime.now().day)
                 return {
                     'country': country_name,
@@ -40,13 +49,13 @@ def get_covid_data():
                     'deaths': deaths
                 }
             else:
-                print("Данные для России не найдены на странице.")
+                html_logger.warning("Данные для России не найдены на странице.")
                 return None
         else:
-            print(f"Ошибка при получении данных. Код статуса: {response.status_code}")
+            html_logger.error(f"Ошибка при получении данных. Код статуса: {response.status_code}")
             return None
     except Exception as e:
-        print(f"Ошибка при получении данных: {e}")
+        html_logger.error(f"Ошибка при получении данных: {e}")
         return None
 
 def get_last_update_date(cursor):
@@ -90,13 +99,13 @@ def save_to_database(data, cursor):
                 ''', (data['date'], data['country'], data['active_cases'], data['deaths']))
 
                 cursor.commit()
-                print("Данные успешно добавлены.")
+                html_logger.info("Данные успешно добавлены.")
             else:
-                print(f"Дубликат данных для даты {data['date']} обнаружен. Пропускаем.")
+                 html_logger.warning(f"Дубликат данных для даты {data['date']} обнаружен. Пропускаем.")
         else:
-            print("Недостаточно времени прошло с последнего обновления.")
+            html_logger.info("Недостаточно времени прошло с последнего обновления.")
     except Exception as e:
-        print(f"Ошибка при сохранении данных в базу: {e}")
+        html_logger.error(f"Ошибка при сохранении данных в базу: {e}")
 
 
 def display_covid_data(cursor):
@@ -128,12 +137,12 @@ def main():
         if covid_data:
             save_to_database(covid_data, cursor)
         else:
-            print("Не удалось получить данные.")
+           html_logger.warning("Не удалось получить данные.")
 
         # Закрытие соединения
         conn.close()
     except Exception as e:
-        print(f"Ошибка при выполнении программы: {e}")
+        html_logger.error(f"Ошибка при выполнении программы: {e}")
 
 if __name__ == '__main__':
     main()
