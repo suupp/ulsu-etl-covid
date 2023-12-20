@@ -12,18 +12,36 @@ def get_covid_data():
     if response.status_code == 200:
         soup = BeautifulSoup(response.text, 'html.parser')
 
-        russia_data = soup.find('tr', {'class': 'tr_mark'})
+        # Ищем строки с данными по активным случаям и смертям
+        rows = soup.find_all('tr', {'class': ['tb_counter_odd', 'tb_counter_even']})
 
-        if russia_data:
-            country_name = russia_data.find('td', {'class': 'td_country'}).text.strip()
+        # Инициализируем переменные
+        country_name = ''
+        active_cases = 0
+        deaths = 0
+
+        for row in rows:
+            # Ищем элементы внутри строки
+            title_element = row.find('strong')
+            value_element = row.find('b', {'class': 'tb_counter_sum'})
+
+            if title_element and value_element:
+                title_text = title_element.text.strip()
+                value_text = value_element.text.strip()
+
+                # Определяем, куда сохранять данные
+                if 'title_active' in title_element.get('class', []):
+                    country_name = title_text
+                    active_cases = int(value_text.replace('+', '').replace(' ', ''))
+                elif 'title_deaths' in title_element.get('class', []):
+                    deaths = int(value_text.replace(' ', ''))
+
+        if country_name and active_cases is not None and deaths is not None:
             current_date = datetime(datetime.now().year, datetime.now().month, datetime.now().day)
-            cases = int(russia_data.find('td', {'class': 'td_cases'}).text.replace(' ', '').strip())
-            deaths = int(russia_data.find('td', {'class': 'td_deaths'}).text.strip())
-
             return {
                 'country': country_name,
                 'date': current_date,
-                'cases': cases,
+                'active_cases': active_cases,
                 'deaths': deaths
             }
         else:
@@ -74,7 +92,7 @@ def save_to_database(data, cursor):
             cursor.execute('''
                 INSERT INTO Covid_stats (date, country, cases, deaths, source)
                 VALUES (?, ?, ?, ?, 'from_html')
-            ''', (data['date'], data['country'], data['cases'], data['deaths']))
+            ''', (data['date'], data['country'], data['active_cases'], data['deaths']))
 
             cursor.commit()
             print("Данные успешно добавлены.")

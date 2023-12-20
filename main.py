@@ -1,6 +1,6 @@
 from csvparserpkg.csvparser import parse_dated_csvfile
 from csvparserpkg.csvparser import rename_keys
-from csvparserpkg.csvparser import save_csv_to_database,add_csv_data_to_database,add_csv_data_to_database_2
+from csvparserpkg.csvparser import save_csv_to_database,add_csv_data_to_database
 from htmlparserpkg.htmlparser import get_covid_data, get_last_update_date, save_to_database, display_covid_data
 import pyodbc
 from datetime import datetime
@@ -20,6 +20,14 @@ def main():
     conn = pyodbc.connect(connection_string)
     cursor = conn.cursor()
 
+     # Добавление данных из CSV в базу данных
+    csv_filepath = 'data.csv'
+    add_csv_data_to_database(cursor, csv_filepath, 'dateRep', 'countriesAndTerritories', 'cases', 'deaths')
+
+    csv_filepath_2 = 'owid-covid-data.csv'
+    add_csv_data_to_database(cursor, csv_filepath_2, 'date', 'location', 'new_cases', 'new_deaths')
+    #add_csv_data_to_database_2(csv_filepath_2, cursor)
+
     # Получение данных из HTML-парсера
     covid_data_html = get_covid_data()
 
@@ -30,14 +38,6 @@ def main():
     else:
         print("Не удалось получить данные из HTML.")
 
-
-     # Добавление данных из CSV в базу данных
-    csv_filepath = 'data.csv'
-    add_csv_data_to_database(cursor, csv_filepath, 'dateRep', 'countriesAndTerritories', 'cases', 'deaths')
-
-    csv_filepath_2 = 'owid-covid-data.csv'
-    add_csv_data_to_database(cursor, csv_filepath_2, 'date', 'location', 'new_cases', 'new_deaths')
-    #add_csv_data_to_database_2(csv_filepath_2, cursor)
     # Отображение данных
     display_covid_data(cursor)
 
