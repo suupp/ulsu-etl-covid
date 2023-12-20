@@ -1,13 +1,8 @@
-from csvparserpkg.csvparser import parse_dated_csvfile
-from csvparserpkg.csvparser import rename_keys
-from csvparserpkg.csvparser import save_csv_to_database,add_csv_data_to_database,add_csv_data_to_database_2
-from htmlparserpkg.htmlparser import get_covid_data, get_last_update_date, save_to_database, display_covid_data
+from csvparserpkg.csvparser import add_csv_data_to_database
+from htmlparserpkg.htmlparser import get_covid_data, save_to_database
 import pyodbc
-from datetime import datetime
 
-
-
-def main():
+def connect_to_database():
     # Параметры подключения к SQL Server
     server = r'MY-NOTEBOOK-00\SQLEXPRESS'
     database = 'CovidData'
@@ -16,33 +11,45 @@ def main():
     # Строка подключения
     connection_string = f'DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={server};DATABASE={database};UID={username};Trusted_Connection=yes;'
 
-    # Подключение к базе данных
-    conn = pyodbc.connect(connection_string)
-    cursor = conn.cursor()
+    try:
+        conn = pyodbc.connect(connection_string)
+        cursor = conn.cursor()
+        return conn, cursor
+    except pyodbc.Error as e:
+        print(f"Ошибка при подключении к базе данных: {e}")
+        raise
 
-    # Получение данных из HTML-парсера
-    covid_data_html = get_covid_data()
+def close_database_connection(conn):
+    try:
+        conn.close()
+    except pyodbc.Error as e:
+        print(f"Ошибка при закрытии соединения с базой данных: {e}")
 
-    # Сохранение данных в базу данных
-    if covid_data_html:
-        save_to_database(covid_data_html, cursor)
-        display_covid_data(cursor)
-    else:
-        print("Не удалось получить данные из HTML.")
+def process_csv_file(cursor, filepath, date_column, location_column, cases_column, deaths_column):
+    try:
+        add_csv_data_to_database(cursor, filepath, date_column, location_column, cases_column, deaths_column)
+    except Exception as e:
+        print(f"Ошибка при обработке CSV-файла {filepath}: {e}")
 
+def main():
+    conn = None
+    try:
+        conn, cursor = connect_to_database()
+        # Обработка CSV-файлов
+        process_csv_file(cursor, 'data.csv', 'dateRep', 'countriesAndTerritories', 'cases', 'deaths')
+        process_csv_file(cursor, 'owid-covid-data.csv', 'date', 'location', 'new_cases', 'new_deaths')
 
-     # Добавление данных из CSV в базу данных
-    csv_filepath = 'data.csv'
-    add_csv_data_to_database(cursor, csv_filepath, 'dateRep', 'countriesAndTerritories', 'cases', 'deaths')
+        # Обработка HTML-данных
+        covid_data_html = get_covid_data()
 
-    csv_filepath_2 = 'owid-covid-data.csv'
-    add_csv_data_to_database(cursor, csv_filepath_2, 'date', 'location', 'new_cases', 'new_deaths')
-    #add_csv_data_to_database_2(csv_filepath_2, cursor)
-    # Отображение данных
-    display_covid_data(cursor)
-
-    # Закрытие соединения
-    conn.close()
+        # Сохранение HTML-данных в базе данных
+        if covid_data_html:
+            save_to_database(covid_data_html, cursor)
+        else:
+            print("Не удалось получить данные из HTML.")
+    finally:
+        if conn:
+            close_database_connection(conn)
 
 if __name__ == '__main__':
     main()

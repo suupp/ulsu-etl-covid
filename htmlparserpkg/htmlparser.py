@@ -1,36 +1,61 @@
 import requests
 from bs4 import BeautifulSoup
 import pyodbc
-from datetime import datetime, timedelta
-from datetime import date
+from datetime import datetime
+import logging
 
+# Конфигурация логгера для HTML-парсера
+html_logger = logging.getLogger('html_parser')
+html_logger.setLevel(logging.INFO)
+html_handler = logging.FileHandler('html_parser.log')
+html_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+html_handler.setFormatter(html_formatter)
+html_logger.addHandler(html_handler)
 
 def get_covid_data():
-    url = 'https://horosho-tam.ru/rossiya/coronavirus'
-    response = requests.get(url)
+    try:
+        url = 'https://horosho-tam.ru/rossiya/coronavirus'
+        response = requests.get(url)
 
-    if response.status_code == 200:
-        soup = BeautifulSoup(response.text, 'html.parser')
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.text, 'html.parser')
+            rows = soup.find_all('tr', {'class': ['tb_counter_odd', 'tb_counter_even']})
 
-        russia_data = soup.find('tr', {'class': 'tr_mark'})
+            country_name = ''
+            active_cases = 0
+            deaths = 0
 
-        if russia_data:
-            country_name = russia_data.find('td', {'class': 'td_country'}).text.strip()
-            current_date = datetime(datetime.now().year, datetime.now().month, datetime.now().day)
-            cases = int(russia_data.find('td', {'class': 'td_cases'}).text.replace(' ', '').strip())
-            deaths = int(russia_data.find('td', {'class': 'td_deaths'}).text.strip())
+            for row in rows:
+                title_element = row.find('strong')
+                value_element = row.find('b', {'class': 'tb_counter_sum'})
 
-            return {
-                'country': country_name,
-                'date': current_date,
-                'cases': cases,
-                'deaths': deaths
-            }
+                if title_element and value_element:
+                    title_text = title_element.text.strip()
+                    value_text = value_element.text.strip()
+
+                    if 'title_active' in title_element.get('class', []):
+                        country_name = title_text
+                        active_cases = int(value_text.replace('+', '').replace(' ', ''))
+                    elif 'title_deaths' in title_element.get('class', []):
+                        deaths = int(value_text.replace(' ', ''))
+
+            if country_name and active_cases is not None and deaths is not None:
+                html_logger.info("Данные успешно получены.")
+                current_date = datetime(datetime.now().year, datetime.now().month, datetime.now().day)
+                return {
+                    'country': country_name,
+                    'date': current_date,
+                    'active_cases': active_cases,
+                    'deaths': deaths
+                }
+            else:
+                html_logger.warning("Данные для России не найдены на странице.")
+                return None
         else:
-            print("Данные для России не найдены на странице.")
+            html_logger.error(f"Ошибка при получении данных. Код статуса: {response.status_code}")
             return None
-    else:
-        print(f"Ошибка при получении данных. Код статуса: {response.status_code}")
+    except Exception as e:
+        html_logger.error(f"Ошибка при получении данных: {e}")
         return None
 
 def get_last_update_date(cursor):
@@ -47,45 +72,44 @@ def get_last_update_date(cursor):
 
 
 def save_to_database(data, cursor):
-    # Проверяем существование таблицы при открытии соединения
-    cursor.execute('''
-        IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Covid_stats')
-        CREATE TABLE Covid_stats (
-            id INT PRIMARY KEY IDENTITY(1,1),
-            date DATE,
-            country NVARCHAR(255),
-            cases INT,
-            deaths INT,
-            source NVARCHAR(255)
-        )
-    ''')
-    
-    # Получаем дату последнего обновления
-    last_update_date = get_last_update_date(cursor)
+    try:
+        cursor.execute('''
+            IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Covid_stats')
+            CREATE TABLE Covid_stats (
+                id INT PRIMARY KEY IDENTITY(1,1),
+                date DATE,
+                country NVARCHAR(255),
+                cases INT,
+                deaths INT,
+                source NVARCHAR(255)
+            )
+        ''')
 
-    if not last_update_date or (datetime.now().date() - last_update_date).days >= 7:
-        data['country'] = 'Russia'
-        # Проверяем наличие дубликатов по дате
-        cursor.execute('SELECT 1 FROM Covid_stats WHERE date = ?', (data['date'],))
-        duplicate_exists = cursor.fetchone()
+        last_update_date = get_last_update_date(cursor)
 
-        if not duplicate_exists:
-            # Добавляем данные, если нет дубликатов
-            cursor.execute('''
-                INSERT INTO Covid_stats (date, country, cases, deaths, source)
-                VALUES (?, ?, ?, ?, 'from_html')
-            ''', (data['date'], data['country'], data['cases'], data['deaths']))
+        if not last_update_date or (datetime.now().date() - last_update_date).days >= 7:
+            data['country'] = 'Russia'
+            cursor.execute('SELECT 1 FROM Covid_stats WHERE date = ?', (data['date'],))
+            duplicate_exists = cursor.fetchone()
 
-            cursor.commit()
-            print("Данные успешно добавлены.")
+            if not duplicate_exists:
+                cursor.execute('''
+                    INSERT INTO Covid_stats (date, country, cases, deaths, source)
+                    VALUES (?, ?, ?, ?, 'from_html')
+                ''', (data['date'], data['country'], data['active_cases'], data['deaths']))
+
+                cursor.commit()
+                html_logger.info("Данные успешно добавлены.")
+            else:
+                 html_logger.warning(f"Дубликат данных для даты {data['date']} обнаружен. Пропускаем.")
         else:
-            print(f"Дубликат данных для даты {data['date']} обнаружен. Пропускаем.")
-    else:
-        print("Недостаточно времени прошло с последнего обновления.")
+            html_logger.info("Недостаточно времени прошло с последнего обновления.")
+    except Exception as e:
+        html_logger.error(f"Ошибка при сохранении данных в базу: {e}")
 
 
 def display_covid_data(cursor):
-    cursor.execute('SELECT TOP 1 * FROM Covid_stats ORDER BY date DESC')
+    cursor.execute('SELECT * FROM Covid_stats ORDER BY date DESC')
     data = cursor.fetchone()
 
     if data:
@@ -95,28 +119,30 @@ def display_covid_data(cursor):
             print(f"{field_name}: {field}")
 
 def main():
-    # Параметры подключения к SQL Server
-    server = r'MY-NOTEBOOK-00\SQLEXPRESS'
-    database = 'CovidData'
-    username = 'MY-NOTEBOOK-00\Я'
+    try:
+        # Параметры подключения к SQL Server
+        server = r'MY-NOTEBOOK-00\SQLEXPRESS'
+        database = 'CovidData'
+        username = 'MY-NOTEBOOK-00\Я'
 
-    # Строка подключения
-    connection_string = f'DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={server};DATABASE={database};UID={username};Trusted_Connection=yes;'
+        # Строка подключения
+        connection_string = f'DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={server};DATABASE={database};UID={username};Trusted_Connection=yes;'
 
-    # Подключение к базе данных
-    conn = pyodbc.connect(connection_string)
-    cursor = conn.cursor()
+        # Подключение к базе данных
+        conn = pyodbc.connect(connection_string)
+        cursor = conn.cursor()
 
-    covid_data = get_covid_data()
+        covid_data = get_covid_data()
 
-    if covid_data:
-        save_to_database(covid_data, cursor)
-        display_covid_data(cursor)
-    else:
-        print("Не удалось получить данные.")
+        if covid_data:
+            save_to_database(covid_data, cursor)
+        else:
+           html_logger.warning("Не удалось получить данные.")
 
-    # Закрытие соединения
-    conn.close()
+        # Закрытие соединения
+        conn.close()
+    except Exception as e:
+        html_logger.error(f"Ошибка при выполнении программы: {e}")
 
 if __name__ == '__main__':
     main()
