@@ -1,18 +1,74 @@
-<table border="1">
-    <thead>
-        <tr>
-            {% for col in colnames %}
-            <th>{{ col }}</th>
-            {% endfor %}
-        </tr>
-    </thead>
-    <tbody>
-        {% for record in records %}
-        <tr>
-            {% for col in colnames %}
-            <td>{{ record[col] }}</td>
-            {% endfor %}
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f4f4;
+            margin: 20px;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        th, td {
+            border: 1px solid #dddddd;
+            text-align: left;
+            padding: 8px;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+
+        td {
+            background-color: #ffffff;
+        }
+
+        th[colspan="2"], td[colspan="2"] {
+            text-align: center;
+            font-style: italic;
+            color: #777777;
+        }
+    </style>
+</head>
+
+<body>
+    <table>
+        <thead>
+            <tr>
+                {% if colnames %}
+                    {% for col in colnames %}
+                        <th>{{ col }}</th>
+                    {% endfor %}
+                {% else %}
+                    <th colspan="2">No data available</th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% if records %}
+                {% for record in records %}
+                    <tr>
+                        {% for col in colnames %}
+                            <td>{{ record.get(col, 'N/A') }}</td>
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td colspan="{{ colnames|length }}">No records available</td>
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</body>
+
+</html>

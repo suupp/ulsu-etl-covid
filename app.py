@@ -65,5 +65,3 @@ def get_covid_data_by_id(item_id):
         return jsonify({'error': 'Item not found'}), 404
 
 app.run(debug=True)
-#if __name__ == '__main__':
-#    app.run(debug=True)
