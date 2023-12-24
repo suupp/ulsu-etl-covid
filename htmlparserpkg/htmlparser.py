@@ -19,6 +19,20 @@ def get_covid_data():
 
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
+            date_cells = soup.find('tr').find_all('th')      
+            current_date = None
+
+            if len(date_cells) > 1:
+                # Используем текущий год и текущий месяц
+                date_cell = date_cells[1]
+                date_text = date_cell.get_text(strip=True)
+
+                # Извлекаем числовую часть из текста
+                day_str = ''.join(filter(str.isdigit, date_text))
+
+                if day_str:
+                 current_date = datetime(datetime.now().year, datetime.now().month, int(day_str))
+
             rows = soup.find_all('tr', {'class': ['tb_counter_odd', 'tb_counter_even']})
 
             country_name = ''
@@ -41,7 +55,6 @@ def get_covid_data():
 
             if country_name and active_cases is not None and deaths is not None:
                 html_logger.info("Данные успешно получены.")
-                current_date = datetime(datetime.now().year, datetime.now().month, datetime.now().day)
                 return {
                     'country': country_name,
                     'date': current_date,
